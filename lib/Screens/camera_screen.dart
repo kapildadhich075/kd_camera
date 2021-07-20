@@ -22,7 +22,7 @@ class _CameraScreenState extends State<CameraScreen> {
   Future<void>? cameraValue;
   bool isRecording = false;
   XFile? videoFile;
-  bool iscameraFront = true;
+  bool isCameraFront = true;
   bool flash = false;
   double transform = 0;
 
@@ -162,10 +162,10 @@ class _CameraScreenState extends State<CameraScreen> {
                       GestureDetector(
                         onTap: () async {
                           setState(() {
-                            iscameraFront = !iscameraFront;
+                            isCameraFront = !isCameraFront;
                             transform = transform + pi;
                           });
-                          int cameraPos = iscameraFront ? 0 : 1;
+                          int cameraPos = isCameraFront ? 0 : 1;
                           _controller = CameraController(
                               cameras![cameraPos], ResolutionPreset.high);
                           cameraValue = _controller!.initialize();
