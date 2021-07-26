@@ -1,104 +1,161 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'package:kd_camera/Screens/cameraView.dart';
+import 'package:flutter/material.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'DocumentScanner.dart';
+import 'cameraView.dart';
 import 'VideoView.dart';
 
 List<CameraDescription>? cameras;
 
 class CameraScreen extends StatefulWidget {
-  final double iconHeight = 30;
+  const CameraScreen({Key? key}) : super(key: key);
 
   @override
   _CameraScreenState createState() => _CameraScreenState();
 }
 
 class _CameraScreenState extends State<CameraScreen> {
-  CameraController? _controller;
+  CameraController? _cameraController;
   Future<void>? cameraValue;
   bool isRecording = false;
   XFile? videoFile;
   bool isCameraFront = true;
   bool flash = false;
   double transform = 0;
+  double zoom = 0.0;
 
   @override
   void initState() {
     super.initState();
-    _controller = CameraController(cameras![0], ResolutionPreset.high);
-    cameraValue = _controller!.initialize();
+    _cameraController = CameraController(cameras![0], ResolutionPreset.high);
+    cameraValue = _cameraController!.initialize();
   }
 
   @override
   void dispose() {
+    _cameraController!.dispose();
     super.dispose();
-    _controller!.dispose();
+  }
+
+  Widget _cameraPreview() => FutureBuilder(
+        future: cameraValue,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.done) {
+            return Container(
+              height: MediaQuery.of(context).size.width * 16 / 9,
+              width: MediaQuery.of(context).size.width,
+              child: CameraPreview(_cameraController!),
+            );
+          } else {
+            return Center(child: CircularProgressIndicator());
+          }
+        },
+      );
+
+  void takePhoto(BuildContext context) async {
+    final path =
+        join((await getTemporaryDirectory()).path, "${DateTime.now()}.png");
+    XFile picture = await _cameraController!.takePicture();
+    picture.saveTo(path);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (builder) => CameraView(
+          path: path,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black87,
+      backgroundColor: Colors.black,
       body: SafeArea(
-        child: Stack(children: [
-          _cameraPreview(),
-          Positioned(
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(vertical: 15.0, horizontal: 15.0),
-              color: Colors.black,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GestureDetector(
-                    onTap: () {},
-                    child: Icon(
-                      Icons.document_scanner_rounded,
-                      color: Colors.white,
-                      size: 30.0,
-                    ),
+        child: Column(
+          children: [
+            Stack(
+              children: [
+                _cameraPreview(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 15.0, horizontal: 30.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (builder) => DocumentScanner(),
+                            ),
+                          );
+                        },
+                        child: Icon(
+                          Icons.document_scanner_rounded,
+                          color: Colors.white,
+                          size: 30.0,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            flash = !flash;
+                          });
+                          flash
+                              ? _cameraController!.setFlashMode(FlashMode.torch)
+                              : _cameraController!.setFlashMode(FlashMode.off);
+                        },
+                        child: flash
+                            ? Icon(
+                                Icons.flash_on,
+                                color: Colors.white,
+                                size: 30.0,
+                              )
+                            : Icon(
+                                Icons.flash_off,
+                                color: Colors.white,
+                                size: 30.0,
+                              ),
+                      ),
+                      GestureDetector(
+                        onTap: () {},
+                        child: Icon(
+                          Icons.menu,
+                          color: Colors.white,
+                          size: 30.0,
+                        ),
+                      ),
+                    ],
                   ),
-                  GestureDetector(
-                    onTap: () {
+                ),
+                Positioned(
+                  bottom: 0,
+                  left: MediaQuery.of(context).size.shortestSide / 4,
+                  child: Slider(
+                    value: zoom,
+                    activeColor: Colors.black,
+                    inactiveColor: Colors.white,
+                    onChanged: (value) {
+                      value = value * 10;
+                      if (value <= 8.0 && value >= 1.0) {
+                        _cameraController!.setZoomLevel(value);
+                      }
                       setState(() {
-                        flash = !flash;
+                        zoom = value / 10;
                       });
-                      flash
-                          ? _controller!.setFlashMode(FlashMode.torch)
-                          : _controller!.setFlashMode(FlashMode.off);
                     },
-                    child: flash
-                        ? Icon(
-                            Icons.flash_on,
-                            color: Colors.white,
-                            size: 30.0,
-                          )
-                        : Icon(
-                            Icons.flash_off,
-                            color: Colors.white,
-                            size: 30.0,
-                          ),
                   ),
-                  GestureDetector(
-                    onTap: () {},
-                    child: Icon(
-                      Icons.menu,
-                      color: Colors.white,
-                      size: 30.0,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ),
-          Positioned(
-            bottom: 0,
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 30.0, vertical: 15.0),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 30.0, vertical: 10.0),
               width: MediaQuery.of(context).size.width,
               color: Colors.black,
               child: Column(
@@ -122,14 +179,14 @@ class _CameraScreenState extends State<CameraScreen> {
                       ),
                       GestureDetector(
                         onLongPress: () async {
-                          await _controller!.startVideoRecording();
+                          await _cameraController!.startVideoRecording();
                           setState(() {
                             isRecording = true;
                           });
                         },
                         onLongPressUp: () async {
                           XFile videoPath =
-                              await _controller!.stopVideoRecording();
+                              await _cameraController!.stopVideoRecording();
                           setState(() {
                             isRecording = false;
                           });
@@ -166,9 +223,9 @@ class _CameraScreenState extends State<CameraScreen> {
                             transform = transform + pi;
                           });
                           int cameraPos = isCameraFront ? 0 : 1;
-                          _controller = CameraController(
+                          _cameraController = CameraController(
                               cameras![cameraPos], ResolutionPreset.high);
-                          cameraValue = _controller!.initialize();
+                          cameraValue = _cameraController!.initialize();
                         },
                         child: Icon(
                           Icons.flip_camera_android,
@@ -179,7 +236,7 @@ class _CameraScreenState extends State<CameraScreen> {
                     ],
                   ),
                   SizedBox(
-                    height: 4.0,
+                    height: 8.0,
                   ),
                   Text(
                     "Hold for the Video, Tap for the Photo",
@@ -189,37 +246,7 @@ class _CameraScreenState extends State<CameraScreen> {
                 ],
               ),
             ),
-          ),
-        ]),
-      ),
-    );
-  }
-
-  Widget _cameraPreview() => FutureBuilder(
-        future: cameraValue,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            return Container(
-              height: MediaQuery.of(context).size.height,
-              width: MediaQuery.of(context).size.width,
-              child: CameraPreview(_controller!),
-            );
-          } else {
-            return Center(child: CircularProgressIndicator());
-          }
-        },
-      );
-
-  void takePhoto(BuildContext context) async {
-    final path =
-        join((await getTemporaryDirectory()).path, "${DateTime.now()}.png");
-    XFile picture = await _controller!.takePicture();
-    picture.saveTo(path);
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (builder) => CameraView(
-          path: path,
+          ],
         ),
       ),
     );

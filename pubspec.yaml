@@ -32,6 +32,8 @@ dependencies:
   path_provider: ^2.0.2
   path:
   video_player: ^2.1.10
+  document_scanner_flutter: ^0.2.5
+  advance_pdf_viewer: ^2.0.0
 
 
 
